@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESA Daily Report Generator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --navy: #0a1628; --navy2: #0f2040; --blue: #1a4a8a;
+    --accent: #2d7dd2; --gold: #f0a500; --gold2: #ffc740;
+    --green: #00c896; --red: #ff4d6d; --white: #f8f9fc;
+    --gray: #8899bb; --border: rgba(45,125,210,0.25);
+    --card: rgba(15,32,64,0.8);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--navy); font-family: 'Outfit', sans-serif;
+    color: var(--white); min-height: 100vh; overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(45,125,210,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(45,125,210,0.06) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  .orb { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
+  .orb1 { width:500px; height:500px; background:rgba(26,74,138,0.35); top:-150px; left:-100px; }
+  .orb2 { width:400px; height:400px; background:rgba(240,165,0,0.12); bottom:-100px; right:-100px; }
+  .orb3 { width:300px; height:300px; background:rgba(0,200,150,0.08); top:40%; left:60%; }
+
+  .container { position:relative; z-index:1; max-width:840px; margin:0 auto; padding:40px 24px 80px; }
+
+  .header { text-align:center; margin-bottom:48px; animation:fadeDown 0.6s ease both; }
+  .logo-row { display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:12px; }
+  .logo-icon { width:52px; height:52px; background:linear-gradient(135deg,var(--accent),var(--gold)); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:0 8px 30px rgba(45,125,210,0.4); }
+  .logo-text { font-family:'DM Serif Display',serif; font-size:32px; background:linear-gradient(90deg,var(--white),var(--gold2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  .tagline { font-size:15px; color:var(--gray); font-weight:300; }
+  .date-badge { display:inline-block; margin-top:14px; background:rgba(45,125,210,0.15); border:1px solid var(--border); border-radius:20px; padding:5px 16px; font-size:13px; color:var(--accent); font-family:'DM Mono',monospace; }
+
+  .section-label { font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--gray); margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .upload-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  @media(max-width:600px){ .upload-grid { grid-template-columns:1fr; } }
+
+  .drop-zone {
+    background:var(--card); border:2px dashed var(--border); border-radius:16px;
+    padding:28px 20px; text-align:center; cursor:pointer;
+    transition:all 0.25s ease; backdrop-filter:blur(12px); position:relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color:var(--accent); background:rgba(45,125,210,0.1);
+    transform:translateY(-2px); box-shadow:0 12px 40px rgba(45,125,210,0.2);
+  }
+  .drop-zone.has-file { border-color:var(--green); border-style:solid; background:rgba(0,200,150,0.06); }
+  .drop-zone.optional { opacity:0.75; }
+  .drop-zone.optional:hover { opacity:1; }
+  .drop-icon { font-size:32px; margin-bottom:10px; display:block; }
+  .drop-title { font-size:15px; font-weight:600; margin-bottom:4px; }
+  .drop-sub { font-size:12px; color:var(--gray); line-height:1.5; }
+  .opt-badge { display:inline-block; margin-top:8px; background:rgba(240,165,0,0.15); border:1px solid rgba(240,165,0,0.3); border-radius:12px; padding:2px 10px; font-size:11px; color:var(--gold); }
+  input[type="file"] { display:none; }
+
+  .api-section { margin-bottom:24px; animation:fadeUp 0.6s 0.2s ease both; }
+  .api-input-wrap { position:relative; display:flex; align-items:center; background:var(--card); border:1px solid var(--border); border-radius:12px; backdrop-filter:blur(12px); overflow:hidden; transition:border-color 0.2s; }
+  .api-input-wrap:focus-within { border-color:var(--accent); }
+  .api-prefix { padding:0 16px; font-family:'DM Mono',monospace; font-size:13px; color:var(--gold); white-space:nowrap; border-right:1px solid var(--border); height:52px; display:flex; align-items:center; }
+  .api-input { flex:1; background:transparent; border:none; outline:none; color:var(--white); font-family:'DM Mono',monospace; font-size:13px; padding:0 16px; height:52px; }
+  .api-input::placeholder { color:var(--gray); }
+  .api-help { font-size:12px; color:var(--gray); margin-top:8px; }
+  .api-help a { color:var(--accent); text-decoration:none; }
+  .api-help a:hover { text-decoration:underline; }
+
+  .run-btn {
+    width:100%; height:64px; background:linear-gradient(135deg,var(--accent) 0%,#1a6ec4 50%,var(--blue) 100%);
+    border:none; border-radius:16px; color:white; font-family:'Outfit',sans-serif;
+    font-size:18px; font-weight:700; cursor:pointer; display:flex; align-items:center;
+    justify-content:center; gap:12px; transition:all 0.2s ease;
+    box-shadow:0 8px 30px rgba(45,125,210,0.4); margin-bottom:28px;
+  }
+  .run-btn:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 14px 40px rgba(45,125,210,0.5); }
+  .run-btn:disabled { opacity:0.45; cursor:not-allowed; transform:none; box-shadow:none; }
+  .run-btn.loading { pointer-events:none; }
+
+  .spinner { width:22px; height:22px; border:3px solid rgba(255,255,255,0.3); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; }
+
+  .progress-section { display:none; margin-bottom:28px; }
+  .progress-section.visible { display:block; animation:fadeUp 0.4s ease both; }
+  .progress-track { background:rgba(255,255,255,0.07); border-radius:8px; height:6px; overflow:hidden; margin-bottom:16px; }
+  .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--gold)); border-radius:8px; transition:width 0.5s ease; width:0%; }
+  .progress-steps { display:flex; flex-direction:column; gap:8px; }
+  .prog-step { display:flex; align-items:center; gap:12px; font-size:14px; opacity:0.35; transition:opacity 0.3s, color 0.3s; }
+  .prog-step.active { opacity:1; color:var(--accent); }
+  .prog-step.done { opacity:0.7; color:var(--green); }
+  .prog-step .si { width:26px; height:26px; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+  .prog-step.done .si { background:var(--green); border-color:var(--green); color:white; }
+  .prog-step.active .si { animation:pulse 1s ease infinite; }
+
+  .error-box { display:none; background:rgba(255,77,109,0.1); border:1px solid rgba(255,77,109,0.35); border-radius:12px; padding:18px 22px; font-size:14px; margin-bottom:20px; }
+  .error-box.visible { display:block; animation:fadeUp 0.4s ease both; }
+  .error-box strong { display:block; margin-bottom:6px; font-size:15px; color:var(--red); }
+
+  .results-section { display:none; }
+  .results-section.visible { display:block; animation:fadeUp 0.5s ease both; }
+  .result-header { display:flex; align-items:center; justify-content:space-between; background:rgba(0,200,150,0.1); border:1px solid rgba(0,200,150,0.3); border-radius:14px; padding:18px 22px; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+  .result-title { display:flex; align-items:center; gap:12px; }
+  .result-title .icon { font-size:28px; }
+  .result-title h3 { font-size:18px; font-weight:700; color:var(--green); }
+  .result-title p { font-size:13px; color:var(--gray); }
+
+  .result-actions { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+  .action-btn { display:flex; align-items:center; gap:8px; padding:11px 20px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:all 0.2s; border:none; }
+  .btn-primary { background:linear-gradient(135deg,var(--accent),var(--blue)); color:white; box-shadow:0 4px 16px rgba(45,125,210,0.35); }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(45,125,210,0.45); }
+  .btn-gold { background:linear-gradient(135deg,var(--gold),#e09400); color:var(--navy); }
+  .btn-gold:hover { transform:translateY(-1px); }
+  .btn-secondary { background:rgba(255,255,255,0.07); color:var(--white); border:1px solid var(--border); }
+  .btn-secondary:hover { background:rgba(255,255,255,0.12); }
+
+  .preview-frame { background:white; border-radius:14px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.5); height:560px; }
+  .preview-frame iframe { width:100%; height:100%; border:none; }
+
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:none} }
+  @keyframes fadeUp   { from{opacity:0;transform:translateY(20px)}  to{opacity:1;transform:none} }
+  @keyframes spin     { to{transform:rotate(360deg)} }
+  @keyframes pulse    { 0%,100%{box-shadow:0 0 0 0 rgba(45,125,210,0.4)} 50%{box-shadow:0 0 0 6px rgba(45,125,210,0)} }
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<div class="container">
+
+  <div class="header">
+    <div class="logo-row">
+      <div class="logo-icon">📊</div>
+      <div class="logo-text">ESA Daily Report</div>
+    </div>
+    <p class="tagline">Powered by Claude AI &nbsp;·&nbsp; Southwire Bookings Analytics</p>
+    <span class="date-badge" id="dateDisplay"></span>
+  </div>
+
+  <!-- File uploads -->
+  <div class="section-label">📁 Upload Files</div>
+  <div class="upload-grid" style="animation:fadeUp 0.6s 0.1s ease both">
+
+    <div class="drop-zone" id="dropZone1" onclick="document.getElementById('file1').click()">
+      <span class="drop-icon" id="icon1">📂</span>
+      <div class="drop-title" id="title1">ESA Bookings File</div>
+      <div class="drop-sub" id="sub1">ESA Bookings Report<br>(Month to Date).xlsx</div>
+      <input type="file" id="file1" accept=".xlsx,.xls" onchange="handleFile(1,this.files[0])">
+    </div>
+
+    <div class="drop-zone optional" id="dropZone2" onclick="document.getElementById('file2').click()">
+      <span class="drop-icon" id="icon2">🗂️</span>
+      <div class="drop-title" id="title2">Mapping File</div>
+      <div class="drop-sub" id="sub2">Southwire Customer number<br>to Flow ESA Name.xlsx</div>
+      <span class="opt-badge">Optional — adds salesperson leaderboard</span>
+      <input type="file" id="file2" accept=".xlsx,.xls" onchange="handleFile(2,this.files[0])">
+    </div>
+
+  </div>
+
+  <!-- API Key -->
+  <div class="api-section">
+    <div class="section-label">🔑 Claude API Key</div>
+    <div class="api-input-wrap">
+      <div class="api-prefix">sk-ant-</div>
+      <input class="api-input" type="password" id="apiKey" placeholder="paste your key here..." autocomplete="off" oninput="checkReady()">
+    </div>
+    <div class="api-help">
+      💡 Free key at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys → Create Key &nbsp;·&nbsp; Less than $0.01 per report
+    </div>
+  </div>
+
+  <!-- Run -->
+  <button class="run-btn" id="runBtn" onclick="runReport()" disabled>
+    <span id="btnIcon">⚡</span>
+    <span id="btnText">Run Daily Report</span>
+  </button>
+
+  <!-- Progress -->
+  <div class="progress-section" id="progressSection">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-steps">
+      <div class="prog-step" id="s1"><div class="si">1</div><span>Reading ESA bookings file...</span></div>
+      <div class="prog-step" id="s2"><div class="si">2</div><span>Sending to Claude AI...</span></div>
+      <div class="prog-step" id="s3"><div class="si">3</div><span>Claude calculating orders, sales, pounds, leaderboard...</span></div>
+      <div class="prog-step" id="s4"><div class="si">4</div><span>Building formatted report...</span></div>
+      <div class="prog-step" id="s5"><div class="si">✓</div><span>Report ready!</span></div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox">
+    <strong>⚠️ Something went wrong</strong>
+    <span id="errorMsg"></span>
+  </div>
+
+  <!-- Results -->
+  <div class="results-section" id="resultsSection">
+    <div class="result-header">
+      <div class="result-title">
+        <span class="icon">✅</span>
+        <div>
+          <h3>Report Ready</h3>
+          <p id="resultMeta">Generated successfully</p>
+        </div>
+      </div>
+    </div>
+    <div class="result-actions">
+      <button class="action-btn btn-primary" id="copyBtn" onclick="copyReport()">📋 Copy — Paste into Outlook</button>
+      <button class="action-btn btn-gold" onclick="downloadHTML()">⬇️ Download HTML</button>
+      <button class="action-btn btn-secondary" onclick="resetAll()">🔄 New Report</button>
+    </div>
+    <div class="section-label">👁 Preview</div>
+    <div class="preview-frame">
+      <iframe id="previewFrame" sandbox="allow-same-origin"></iframe>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let files = { 1: null, 2: null };
+  let reportHTML = '';
+
+  document.getElementById('dateDisplay').textContent =
+    new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  // Drag & drop for both zones
+  [1,2].forEach(n => {
+    const dz = document.getElementById('dropZone'+n);
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); if(e.dataTransfer.files[0]) handleFile(n, e.dataTransfer.files[0]); });
+  });
+
+  function handleFile(n, file) {
+    if(!file) return;
+    files[n] = file;
+    const dz = document.getElementById('dropZone'+n);
+    dz.classList.add('has-file');
+    document.getElementById('icon'+n).textContent = '✅';
+    document.getElementById('title'+n).textContent = file.name.length > 28 ? file.name.slice(0,26)+'…' : file.name;
+    document.getElementById('sub'+n).textContent = (file.size/1024).toFixed(0)+' KB';
+    checkReady();
+  }
+
+  function checkReady() {
+    const key = document.getElementById('apiKey').value.trim();
+    document.getElementById('runBtn').disabled = !(files[1] && key.length > 20);
+  }
+
+  function setStep(n) {
+    const pcts = [0,20,40,65,85,100];
+    document.getElementById('progressFill').style.width = pcts[n]+'%';
+    for(let i=1;i<=5;i++) {
+      document.getElementById('s'+i).className = 'prog-step'+(i<n?' done':i===n?' active':'');
+    }
+  }
+
+  async function runReport() {
+    const rawKey = document.getElementById('apiKey').value.trim();
+    const apiKey = rawKey.startsWith('sk-ant-') ? rawKey : 'sk-ant-'+rawKey;
+
+    document.getElementById('errorBox').classList.remove('visible');
+    document.getElementById('resultsSection').classList.remove('visible');
+    document.getElementById('progressSection').classList.add('visible');
+    const btn = document.getElementById('runBtn');
+    btn.disabled = true; btn.classList.add('loading');
+    document.getElementById('btnIcon').innerHTML = '<div class="spinner"></div>';
+    document.getElementById('btnText').textContent = 'Running…';
+
+    try {
+      setStep(1);
+      const formData = new FormData();
+      formData.append('esa_file', files[1]);
+      if(files[2]) formData.append('map_file', files[2]);
+
+      setStep(2);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 180000);
+      let resp;
+      try {
+        resp = await fetch("/run-report", {
+          method: "POST",
+          headers: { "X-Api-Key": apiKey },
+          body: formData,
+          signal: controller.signal
+        });
+      } finally { clearTimeout(timeout); }
+        method: 'POST',
+        headers: { 'X-Api-Key': apiKey },
+        body: formData
+      });
+
+      setStep(3);
+      const text = await resp.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { throw new Error("Bad server response: " + text.slice(0,300)); }
+
+      if(!resp.ok || data.error) throw new Error(data.error || 'Server error '+resp.status);
+
+      setStep(4);
+      reportHTML = data.html;
+      await new Promise(r=>setTimeout(r,400));
+      setStep(5);
+      await new Promise(r=>setTimeout(r,500));
+
+      document.getElementById('progressSection').classList.remove('visible');
+      document.getElementById('resultsSection').classList.add('visible');
+      document.getElementById('previewFrame').srcdoc = reportHTML;
+      document.getElementById('resultMeta').textContent =
+        'Generated at '+new Date().toLocaleTimeString()+(files[2]?' · Includes salesperson leaderboard':'');
+
+    } catch(e) {
+      document.getElementById('progressSection').classList.remove('visible');
+      document.getElementById('errorBox').classList.add('visible');
+      document.getElementById('errorMsg').textContent = ' '+e.message;
+    } finally {
+      btn.disabled = false; btn.classList.remove('loading');
+      document.getElementById('btnIcon').textContent = '⚡';
+      document.getElementById('btnText').textContent = 'Run Daily Report';
+      checkReady();
+    }
+  }
+
+  async function copyReport() {
+    try {
+      await navigator.clipboard.writeText(reportHTML);
+      const btn = document.getElementById('copyBtn');
+      btn.textContent = '✅ Copied! Now paste into Outlook';
+      btn.style.background = 'linear-gradient(135deg,#00c896,#00a87a)';
+      setTimeout(()=>{ btn.textContent='📋 Copy — Paste into Outlook'; btn.style.background=''; },3500);
+    } catch(e) {
+      alert('Auto-copy failed. Right-click inside the preview, select all, then copy.');
+    }
+  }
+
+  function downloadHTML() {
+    const blob = new Blob([reportHTML],{type:'text/html'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ESA_Daily_Report_'+new Date().toISOString().slice(0,10)+'.html';
+    a.click();
+  }
+
+  function resetAll() {
+    files = {1:null, 2:null};
+    reportHTML = '';
+    [1,2].forEach(n=>{
+      document.getElementById('dropZone'+n).classList.remove('has-file','drag-over');
+      document.getElementById('icon'+n).textContent = n===1?'📂':'🗂️';
+      document.getElementById('title'+n).textContent = n===1?'ESA Bookings File':'Mapping File';
+      document.getElementById('sub'+n).textContent = n===1?'ESA Bookings Report\n(Month to Date).xlsx':'Southwire Customer number\nto Flow ESA Name.xlsx';
+      document.getElementById('file'+n).value='';
+    });
+    document.getElementById('resultsSection').classList.remove('visible');
+    document.getElementById('errorBox').classList.remove('visible');
+    checkReady();
+  }
+</script>
+</body>
+</html>
