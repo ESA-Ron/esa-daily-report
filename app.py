@@ -4,13 +4,13 @@ import anthropic
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__)
 CORS(app)
 
 # ── Serve the frontend ──────────────────────────────────────────────────────
 @app.route('/')
 def index():
-    return send_from_directory('static', 'index.html')
+    return send_from_directory('.', 'index.html')
 
 # ── Run the ESA report ──────────────────────────────────────────────────────
 @app.route('/run-report', methods=['POST'])
